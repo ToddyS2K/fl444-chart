@@ -61,23 +61,25 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .info b { color: var(--fg); font-weight: 600; }
 .msg { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; color: var(--muted); }
 .msg.err { color: var(--err); border-color: var(--err); }
-#chart { height: clamp(300px, 56vh, 560px); width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#chart { height: clamp(260px, 54vh, 560px); width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .col { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
-.col h2 { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.col h2 { margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .lv { display: grid; grid-template-columns: 10px 3.6em 1fr auto; gap: 6px; align-items: center; padding: 3px 4px; border-radius: 6px;
-  font-family: var(--font-num); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  font-family: var(--font-num); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .lv .dot { width: 10px; height: 3px; border-radius: 2px; }
 .lv .dot.tr { background-image: linear-gradient(90deg, currentColor 50%, transparent 50%) !important; background-size: 4px 3px; }
-.lv .nm { font-family: var(--font-ui); font-weight: 600; font-size: 13px; }
+.lv .nm { font-family: var(--font-ui); font-weight: 600; font-size: 12px; }
 .lv .px { text-align: right; }
 .lv .ds { text-align: right; color: var(--muted); min-width: 4.2em; }
 .lv.last { background: var(--hi); }
 .lv.burnt .nm, .lv.burnt .px { color: var(--muted); text-decoration: line-through; }
 .lv.off { opacity: .45; }
-.col p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
-.pos { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; font-size: 13px; }
+.col p { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.pos { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.prow { display: grid; grid-template-columns: 11em 1fr auto; gap: 2px 10px; }
 .pos .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; text-align: right; }
+.pos .when { color: var(--muted); }
 .pos .buy { color: var(--up); font-weight: 600; }
 .pos .sell { color: var(--down); font-weight: 600; }
 footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--muted); }
@@ -88,7 +90,13 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 .sw.dash { background-image: linear-gradient(90deg, var(--muted) 55%, transparent 55%) !important; background-size: 5px 3px; }
 .note { border-left: 3px solid var(--line); padding-left: 8px; }
 [hidden] { display: none !important; }
-@media (max-width: 380px) { .cols { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  body { padding-block: 8px 16px; }
+  .app { gap: 8px; }
+  h1 { font-size: 16px; }
+  .prow { grid-template-columns: 1fr auto; }
+  .pos .when { grid-column: 1 / -1; order: 3; text-align: left; }
+}
 </style>
 </head>
 <body>
@@ -105,11 +113,11 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       <button type="button" class="chip" id="t-POS" aria-pressed="true">Posizioni</button>
       <button type="button" class="chip plain" id="fit">Adatta</button>
     </div>
-    <div class="info" id="info"></div>
+    <div class="info" id="info" hidden></div>
     <div id="chart" role="img" aria-label="Grafico a candele con i livelli del periodo" style="margin-top:8px"></div>
     <div class="cols" style="margin-top:12px">
-      <div class="col"><h2 id="mr-head">MR</h2><div id="list-MR"></div><p id="mr-note"></p></div>
-      <div class="col"><h2 id="tr-head">TR</h2><div id="list-TR"></div><p id="tr-note"></p></div>
+      <div class="col" id="box-MR"><h2 id="mr-head">MR</h2><div id="list-MR"></div></div>
+      <div class="col" id="box-TR"><h2 id="tr-head">TR</h2><div id="list-TR"></div><p id="tr-note"></p></div>
     </div>
     <div class="col" id="pos-box" style="margin-top:12px" hidden><h2>Posizioni aperte dell'EA</h2><div class="pos" id="pos-list"></div></div>
   </div>
@@ -125,7 +133,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       <span><i class="sw" style="background:var(--burnt)"></i>bruciato</span>
       <span><i class="sw" style="background:var(--pos)"></i>posizione</span>
     </div>
-    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA.</div>
+    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA. <span id="burnt-note"></span></div>
   </footer>
 </div>
 
@@ -150,7 +158,6 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
   function hm(t) { var d = new Date(t * 1000); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()); }
   function numIT(x, dec) { return Number(x).toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
   var MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-  var MONTHS_L = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
 
   function fail(text) {
     var m = $("msg"); m.textContent = text; m.className = "msg err"; m.hidden = false; $("main").hidden = true;
@@ -279,7 +286,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       var burnt = isBurnt(lv.kind, lv.name, live);
       lines.push(series.createPriceLine({ price: lv.price, color: burnt ? tok("--burnt") : levelColor(lv.name),
         lineWidth: lv.name.slice(-3) === "138" ? 2 : 1, lineStyle: burnt ? 1 : (lv.kind === "TR" ? 2 : (lv.name === "PP" ? 1 : 0)),
-        axisLabelVisible: !burnt, title: lv.name + (burnt ? " ✕" : "") }));
+        axisLabelVisible: false, title: lv.name + (burnt ? " ✕" : "") }));
     });
     var pos = D.positions || [], marks = [];
     if (state.POS) {
@@ -295,12 +302,10 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     series.setMarkers(marks);
     if (fit) chart.timeScale().fitContent();
 
-    var last = bars[bars.length - 1], R = (D.bar.high - D.bar.low) / pip;
-    var ps = D.period_start;
-    var per = { W: "Settimana dal " + dmy(ps), M: "Mese di " + MONTHS_L[new Date(ps * 1000).getUTCMonth()], D: "Giornata del " + dmy(ps) }[D.view] || "";
-    var src = { W: "candela W1 del " + dmy(D.bar.time), M: "candela MN1 di " + MONTHS_L[new Date(D.bar.time * 1000).getUTCMonth()], D: "candela D1 del " + dmy(D.bar.time) }[D.view] || "";
-    $("info").innerHTML = "<b>" + esc(per) + "</b> · livelli dalla " + esc(src) + " · R " + numIT(R, 1) + " pip · candele " + esc(D.candle_tf) +
-      (D.held_from ? " · <b>livelli del giorno del ciclo</b> (posizioni ancora aperte, mantenimento)" : "");
+    var last = bars[bars.length - 1];
+    // solo il mantenimento, che cambia il senso dei livelli: il resto della vecchia intestazione e' tolto (01/11/2026)
+    $("info").hidden = !D.held_from;
+    $("info").innerHTML = D.held_from ? "<b>Livelli del giorno del ciclo</b> (posizioni ancora aperte, mantenimento)" : "";
     ["MR", "TR"].forEach(function (k) {
       var rows = lvs.filter(function (lv) { return lv.kind === k; }).sort(function (a, b) { return b.price - a.price; });
       var near = null, best = Infinity;
@@ -314,16 +319,15 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       }).join("");
     });
     var bull = (D.tr || {}).dir === "BULL", cand = { W: "della settimana prima", M: "del mese prima", D: "di ieri" }[D.view] || "";
-    $("tr-head").textContent = "TR " + (bull ? "long" : "short") + (logicOn("TR") ? "" : " · logica spenta");
-    $("mr-head").textContent = "MR" + (logicOn("MR") ? "" : " · logica spenta");
+    $("tr-head").textContent = "TR " + (bull ? "long" : "short");
     $("tr-note").textContent = "Candela " + cand + (bull ? " verde: TR solo sul lato long." : " rossa o doji: TR solo sul lato short.");
     var anyStatus = live.long !== null || live.short !== null || live.tr !== null;
-    $("mr-note").textContent = anyStatus ? "Barrati: livelli d'ingresso gia' bruciati o lato concluso nel periodo." : "Stato dei livelli non disponibile.";
+    $("burnt-note").textContent = anyStatus ? "Barrati: livelli d'ingresso gia' bruciati o lato concluso nel periodo." : "Stato dei livelli non disponibile.";
     $("pos-box").hidden = !pos.length;
     $("pos-list").innerHTML = pos.map(function (p) {
       var d = ((p.type === "buy" ? 1 : -1) * (last.close - p.price)) / pip;
-      return '<span class="' + p.type + '">' + esc(posLabel(p)) + '</span><span class="num">' + Number(p.price).toFixed(dg) + " · " + dmy(p.time) + " " + hm(p.time) +
-        '</span><span class="num">' + (d >= 0 ? "+" : "−") + numIT(Math.abs(d), 1) + " pip · " + numIT(p.profit, 2) + "</span>";
+      return '<div class="prow"><span class="' + p.type + '">' + esc(posLabel(p)) + '</span><span class="num when">' + Number(p.price).toFixed(dg) + " · " + dmy(p.time) + " " + hm(p.time) +
+        '</span><span class="num">' + (d >= 0 ? "+" : "−") + numIT(Math.abs(d), 1) + " pip · " + numIT(p.profit, 2) + "</span></div>";
     }).join("");
     ["MR", "TR", "POS"].forEach(function (k) { $("t-" + k).setAttribute("aria-pressed", String(state[k])); });
     $("t-POS").hidden = !pos.length;
@@ -337,6 +341,8 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     $("sub").textContent = (ea.family || (D.fam === "Y" ? "Yamatai" : "Futureland")) + (ea.made ? " · grafico delle " + ea.made.slice(-5) : "");
     $("stamp").textContent = "⏱️ " + String(D.server_time_s || "").replace(/^(\d{4})\.(\d{2})\.(\d{2}) (\d\d:\d\d).*$/, "$3/$2/$1 $4") + " ora del server";
     state.MR = logicOn("MR"); state.TR = logicOn("TR");
+    // una logica spenta non ha ne' riquadro ne' pulsante (01/11/2026)
+    ["MR", "TR"].forEach(function (k) { $("box-" + k).hidden = !state[k]; $("t-" + k).hidden = !state[k]; });
     $("msg").hidden = true; $("main").hidden = false; $("foot").hidden = false;
     var LC = window.LightweightCharts;
     chart = LC.createChart($("chart"), {
