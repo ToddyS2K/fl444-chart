@@ -381,7 +381,9 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     if (D.error) return fail("Il servizio ha risposto: " + D.error);
     var ea = D.ea || {};
     $("title").textContent = (ea.name || D.sym) + " · " + (ea.view_label || D.view);
-    $("sub").textContent = (ea.family || (D.fam === "Y" ? "Yamatai" : "Futureland")) + (ea.made ? " · grafico delle " + ea.made.slice(-5) : "");
+    // il time frame delle candele accanto alla famiglia (01/11/2026: con l'intestazione tolta non si vedeva piu'; l'ora
+    // del grafico tolta lo stesso giorno, resta l'ora del server in fondo)
+    $("sub").textContent = (ea.family || (D.fam === "Y" ? "Yamatai" : "Futureland")) + (D.candle_tf ? " · " + D.candle_tf : "");
     $("stamp").textContent = "⏱️ " + String(D.server_time_s || "").replace(/^(\d{4})\.(\d{2})\.(\d{2}) (\d\d:\d\d).*$/, "$3/$2/$1 $4") + " ora del server";
     state.MR = logicOn("MR"); state.TR = logicOn("TR");
     // una logica spenta non ha ne' riquadro ne' pulsante (01/11/2026)
