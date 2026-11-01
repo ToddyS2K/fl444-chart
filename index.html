@@ -216,7 +216,41 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 
   // ---------------------------------------------------------------- disegno
   var state = { MR: true, TR: true, POS: true };
-  var D, chart, series, lines = [];
+  var D, chart, series, lines = [], names;
+
+  // nomi dei livelli piccoli a sinistra delle linee, senza riquadro (01/11/2026): una primitiva della serie
+  // (plugin di Lightweight Charts 4.1+). Due nomi troppo vicini in verticale si affiancano invece di sovrapporsi.
+  function LevelNames() {
+    var self = this;
+    this.items = [];
+    this.view = { zOrder: function () { return "top"; }, renderer: function () { return { draw: function (target) {
+      if (!self.series || !self.items.length) return;
+      target.useMediaCoordinateSpace(function (sc) {
+        var ctx = sc.context, rows = [];
+        ctx.font = "500 10px " + tok("--font-num");
+        ctx.textBaseline = "bottom";
+        ctx.lineJoin = "round";
+        self.items.forEach(function (it) {
+          var y = self.series.priceToCoordinate(it.price);
+          if (y !== null && y > 10 && y < sc.mediaSize.height + 10) rows.push({ y: y, it: it });
+        });
+        rows.sort(function (a, b) { return a.y - b.y; });
+        var prevY = -99, x = 4, halo = tok("--surface");
+        rows.forEach(function (r) {
+          x = (r.y - prevY < 11) ? x : 4;
+          ctx.strokeStyle = halo; ctx.lineWidth = 3; ctx.strokeText(r.it.text, x, r.y - 2);
+          ctx.fillStyle = r.it.color; ctx.fillText(r.it.text, x, r.y - 2);
+          x += ctx.measureText(r.it.text).width + 8;
+          prevY = r.y;
+        });
+      });
+    } }; } };
+  }
+  LevelNames.prototype.attached = function (p) { this.series = p.series; this.requestUpdate = p.requestUpdate; };
+  LevelNames.prototype.detached = function () { this.series = null; this.requestUpdate = null; };
+  LevelNames.prototype.paneViews = function () { return [this.view]; };
+  LevelNames.prototype.updateAllViews = function () {};
+  LevelNames.prototype.set = function (items) { this.items = items; if (this.requestUpdate) this.requestUpdate(); };
 
   function levelColor(name) {
     var m = name.match(/(38|61|78|100|138|161|200)$/);
@@ -280,14 +314,16 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     });
     series.setData(bars);
     lines.forEach(function (l) { series.removePriceLine(l); }); lines = [];
-    var live = liveSets(), lvs = levels();
+    var live = liveSets(), lvs = levels(), tags = [];
     lvs.forEach(function (lv) {
       if (!state[lv.kind]) return;
-      var burnt = isBurnt(lv.kind, lv.name, live);
-      lines.push(series.createPriceLine({ price: lv.price, color: burnt ? tok("--burnt") : levelColor(lv.name),
+      var burnt = isBurnt(lv.kind, lv.name, live), color = burnt ? tok("--burnt") : levelColor(lv.name);
+      lines.push(series.createPriceLine({ price: lv.price, color: color,
         lineWidth: lv.name.slice(-3) === "138" ? 2 : 1, lineStyle: burnt ? 1 : (lv.kind === "TR" ? 2 : (lv.name === "PP" ? 1 : 0)),
-        axisLabelVisible: false, title: lv.name + (burnt ? " ✕" : "") }));
+        axisLabelVisible: false, title: "" }));
+      tags.push({ price: lv.price, color: color, text: lv.name + (burnt ? " ✕" : "") });
     });
+    names.set(tags);
     var pos = D.positions || [], marks = [];
     if (state.POS) {
       pos.forEach(function (p) {
@@ -362,6 +398,8 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
     });
     series = chart.addCandlestickSeries({ priceLineVisible: true, lastValueVisible: true });
+    names = new LevelNames();
+    series.attachPrimitive(names);
     ["MR", "TR", "POS"].forEach(function (k) {
       $("t-" + k).addEventListener("click", function () { state[k] = !state[k]; render(false); });
     });
