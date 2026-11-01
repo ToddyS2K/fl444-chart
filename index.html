@@ -19,16 +19,27 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-/* sempre il tema scuro, in Telegram e fuori, qualunque sia il tema del telefono (01/11/2026, decisione di Marco) */
 :root {
+  --bg: #eef2f5; --surface: #ffffff; --fg: #15202b; --muted: #5b6977; --line: #d6dee5; --accent: #2b7bc9;
+  --up: #1e9a68; --down: #cf4556; --up-faded: #b9dccd; --down-faded: #ecc0c6;
+  --lv38: #1e9a68; --lv61: #c99a0e; --lv78: #dd7a17; --lv100: #c4501a; --lv138: #d12f2f; --lvpp: #8794a1;
+  --burnt: #a8b3bd; --pos: #6d4fd1;
+  --grid: #e6ebf0; --hi: #fff6dc; --err: #b42318;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0e1621; --surface: #17212b; --fg: #e4ebf2; --muted: #8a9aab; --line: #263444; --accent: #5ea8f2;
   --up: #3dbb87; --down: #ee6a79; --up-faded: #23473a; --down-faded: #4d2a31;
   --lv38: #3dbb87; --lv61: #e2b63a; --lv78: #f0954a; --lv100: #ec7546; --lv138: #f2545b; --lvpp: #7c8b9b;
   --burnt: #4f5d6b; --pos: #a58cf5;
-  --grid: #1d2935; --hi: #2c2a1c; --err: #f2545b; color-scheme: dark;
-  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-num: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
+  --grid: #1d2935; --hi: #2c2a1c; --err: #f2545b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1621; --surface: #17212b; --fg: #e4ebf2; --muted: #8a9aab; --line: #263444; --accent: #5ea8f2;
+  --up: #3dbb87; --down: #ee6a79; --up-faded: #23473a; --down-faded: #4d2a31;
+  --lv38: #3dbb87; --lv61: #e2b63a; --lv78: #f0954a; --lv100: #ec7546; --lv138: #f2545b; --lvpp: #7c8b9b;
+  --burnt: #4f5d6b; --pos: #a58cf5;
+  --grid: #1d2935; --hi: #2c2a1c; --err: #f2545b; color-scheme: dark }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
@@ -116,7 +127,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     <div class="col" id="pos-box" style="margin-top:12px" hidden><h2>Posizioni aperte dell'EA</h2><div class="pos" id="pos-list"></div></div>
   </div>
   <footer id="foot" hidden>
-    <div><span class="stamp" id="stamp"></span> · pagina 01/11/2026 (3)</div>
+    <div><span class="stamp" id="stamp"></span> · pagina 01/11/2026 (4)</div>
     <div class="legend">
       <span><i class="sw" style="background:var(--lv38)"></i>TP 38</span>
       <span><i class="sw" style="background:var(--lv61)"></i>61</span>
@@ -137,13 +148,13 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
   "use strict";
   var root = document.documentElement;
   var tg = window.Telegram && window.Telegram.WebApp;
-  if (tg && tg.initData) {
+  if (tg && tg.initData) {                 // dentro Telegram: il suo tema; fuori, quello del sistema
     try { tg.ready(); tg.expand(); } catch (e) {}
     // il dito sul grafico sposta le candele: niente gesto verso il basso che riduce o chiude la finestra (Bot API 7.7)
     try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes(); } catch (e) {}
-    // la barra e il fondo della finestra di Telegram scuri come la pagina, anche con Telegram nel tema chiaro (Bot API 6.1)
-    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("6.1")) { tg.setHeaderColor("#0e1621"); tg.setBackgroundColor("#0e1621"); } } catch (e) {}
-    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.10")) tg.setBottomBarColor("#0e1621"); } catch (e) {}
+    var setTheme = function () { if (tg.colorScheme) root.setAttribute("data-theme", tg.colorScheme); };
+    setTheme();
+    try { tg.onEvent("themeChanged", setTheme); } catch (e) {}
   }
 
   function $(id) { return document.getElementById(id); }
@@ -405,6 +416,9 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     window.addEventListener("resize", fitHeight);
     if (inTg) try { tg.onEvent("viewportChanged", function (e) { if (!e || e.isStateStable) fitHeight(); }); } catch (e) {}
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitHeight);
+    var retheme = function () { applyTheme(); render(false); };
+    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme); } catch (e) {}
+    new MutationObserver(retheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     applyTheme();
     render(true);
   }
