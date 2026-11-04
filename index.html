@@ -24,7 +24,7 @@
   --up: #1e9a68; --down: #cf4556; --up-faded: #b9dccd; --down-faded: #ecc0c6;
   --lv38: #1e9a68; --lv61: #c99a0e; --lv78: #dd7a17; --lv100: #c4501a; --lv138: #d12f2f; --lvpp: #8794a1;
   --burnt: #a8b3bd; --pos: #6d4fd1;
-  --grid: #e6ebf0; --hi: #fff6dc; --err: #b42318;
+  --hi: #fff6dc; --err: #b42318;
   --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
@@ -33,13 +33,13 @@
   --up: #3dbb87; --down: #ee6a79; --up-faded: #23473a; --down-faded: #4d2a31;
   --lv38: #3dbb87; --lv61: #e2b63a; --lv78: #f0954a; --lv100: #ec7546; --lv138: #f2545b; --lvpp: #7c8b9b;
   --burnt: #4f5d6b; --pos: #a58cf5;
-  --grid: #1d2935; --hi: #2c2a1c; --err: #f2545b; color-scheme: dark } }
+  --hi: #2c2a1c; --err: #f2545b; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0e1621; --surface: #17212b; --fg: #e4ebf2; --muted: #8a9aab; --line: #263444; --accent: #5ea8f2;
   --up: #3dbb87; --down: #ee6a79; --up-faded: #23473a; --down-faded: #4d2a31;
   --lv38: #3dbb87; --lv61: #e2b63a; --lv78: #f0954a; --lv100: #ec7546; --lv138: #f2545b; --lvpp: #7c8b9b;
   --burnt: #4f5d6b; --pos: #a58cf5;
-  --grid: #1d2935; --hi: #2c2a1c; --err: #f2545b; color-scheme: dark }
+  --hi: #2c2a1c; --err: #f2545b; color-scheme: dark }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
@@ -115,7 +115,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       <button type="button" class="chip" id="t-MR" aria-pressed="true">MR</button>
       <button type="button" class="chip" id="t-TR" aria-pressed="true">TR</button>
       <button type="button" class="chip" id="t-POS" aria-pressed="true">Posizioni</button>
-      <button type="button" class="chip plain" id="fit">Adatta</button>
+      <button type="button" class="chip icon" id="fit" title="Adatta" aria-label="Adatta"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3v10M14 3v10M5 8h6M7 6L5 8l2 2M9 6l2 2-2 2"/></svg></button>
       <button type="button" class="chip icon" id="fs" title="Schermo intero" aria-label="Schermo intero" hidden></button>
     </div>
     <div class="info" id="info" hidden></div>
@@ -138,7 +138,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       <span><i class="sw" style="background:var(--burnt)"></i>bruciato</span>
       <span><i class="sw" style="background:var(--pos)"></i>posizione</span>
     </div>
-    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA. <span id="burnt-note"></span></div>
+    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA. <span id="burnt-note"></span> Grafico: <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts</a>.</div>
   </footer>
 </div>
 
@@ -227,11 +227,13 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 
   // nomi dei livelli piccoli a sinistra delle linee, senza riquadro (01/11/2026): una primitiva della serie
   // (plugin di Lightweight Charts 4.1+). Due nomi troppo vicini in verticale si affiancano invece di sovrapporsi.
+  // Allo stesso modo, a destra, le posizioni (04/11/2026): lato e lotti, il resto nel riquadro Posizioni.
   function LevelNames() {
     var self = this;
     this.items = [];
+    this.right = [];
     this.view = { zOrder: function () { return "top"; }, renderer: function () { return { draw: function (target) {
-      if (!self.series || !self.items.length) return;
+      if (!self.series) return;
       target.useMediaCoordinateSpace(function (sc) {
         var ctx = sc.context, rows = [];
         ctx.font = "500 10px " + tok("--font-num");
@@ -250,6 +252,22 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
           x += ctx.measureText(r.it.text).width + 8;
           prevY = r.y;
         });
+        var rows2 = [];
+        self.right.forEach(function (it) {
+          var y = self.series.priceToCoordinate(it.price);
+          if (y !== null && y > 10 && y < sc.mediaSize.height + 10) rows2.push({ y: y, it: it });
+        });
+        rows2.sort(function (a, b) { return a.y - b.y; });
+        var edge = sc.mediaSize.width - 4, xr = edge;
+        prevY = -99;
+        rows2.forEach(function (r) {
+          xr = (r.y - prevY < 11) ? xr : edge;
+          var w = ctx.measureText(r.it.text).width;
+          ctx.strokeStyle = halo; ctx.lineWidth = 3; ctx.strokeText(r.it.text, xr - w, r.y - 2);
+          ctx.fillStyle = r.it.color; ctx.fillText(r.it.text, xr - w, r.y - 2);
+          xr -= w + 8;
+          prevY = r.y;
+        });
       });
     } }; } };
   }
@@ -257,7 +275,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
   LevelNames.prototype.detached = function () { this.series = null; this.requestUpdate = null; };
   LevelNames.prototype.paneViews = function () { return [this.view]; };
   LevelNames.prototype.updateAllViews = function () {};
-  LevelNames.prototype.set = function (items) { this.items = items; if (this.requestUpdate) this.requestUpdate(); };
+  LevelNames.prototype.set = function (items, right) { this.items = items; this.right = right || []; if (this.requestUpdate) this.requestUpdate(); };
 
   function levelColor(name) {
     var m = name.match(/(38|61|78|100|138|161|200)$/);
@@ -301,8 +319,8 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 
   function applyTheme() {
     chart.applyOptions({
-      layout: { background: { type: "solid", color: tok("--surface") }, textColor: tok("--muted"), fontFamily: tok("--font-num"), fontSize: 11 },
-      grid: { vertLines: { color: tok("--grid") }, horzLines: { color: tok("--grid") } },
+      layout: { background: { type: "solid", color: tok("--surface") }, textColor: tok("--muted"), fontFamily: tok("--font-num"), fontSize: 11, attributionLogo: false },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       crosshair: { vertLine: { color: tok("--muted"), labelBackgroundColor: tok("--accent") }, horzLine: { color: tok("--muted"), labelBackgroundColor: tok("--accent") } }
     });
     series.applyOptions({ upColor: tok("--up"), downColor: tok("--down"), borderUpColor: tok("--up"), borderDownColor: tok("--down"),
@@ -330,17 +348,19 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
         axisLabelVisible: false, title: "" }));
       tags.push({ price: lv.price, color: color, text: lv.name + (burnt ? " ✕" : "") });
     });
-    names.set(tags);
-    var pos = D.positions || [], marks = [];
+    var pos = D.positions || [], marks = [], posTags = [];
     if (state.POS) {
       pos.forEach(function (p) {
-        lines.push(series.createPriceLine({ price: p.price, color: tok("--pos"), lineWidth: 2, lineStyle: 3, axisLabelVisible: true, title: posLabel(p) }));
+        // linea sottile e nome piccolo (04/11/2026): le etichette sull'asse e sulla freccia coprivano le candele
+        lines.push(series.createPriceLine({ price: p.price, color: tok("--pos"), lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: "" }));
+        posTags.push({ price: p.price, color: tok("--pos"), text: (p.type === "buy" ? "BUY " : "SELL ") + numIT(p.volume, 2) });
         var t = null;
         for (var i = 0; i < bars.length; i++) { if (bars[i].time <= p.time) t = bars[i].time; else break; }
         if (t !== null) marks.push({ time: t, position: p.type === "buy" ? "belowBar" : "aboveBar", color: tok("--pos"),
-          shape: p.type === "buy" ? "arrowUp" : "arrowDown", text: posLabel(p) });
+          shape: p.type === "buy" ? "arrowUp" : "arrowDown", size: 0.8 });
       });
     }
+    names.set(tags, posTags);
     marks.sort(function (a, b) { return a.time - b.time; });
     series.setMarkers(marks);
     if (fit) chart.timeScale().fitContent();
