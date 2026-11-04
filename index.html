@@ -365,9 +365,8 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     names.set(tags, posTags);
     marks.sort(function (a, b) { return a.time - b.time; });
     series.setMarkers(marks);
-    // all'apertura l'ultimo terzo delle candele e 2 scatti di zoom (uno scatto di rotella = 5%), piu' leggibile
-    // (04/11/2026); l'icona accanto ai pulsanti le mostra tutte
-    if (fit) chart.timeScale().setVisibleLogicalRange({ from: bars.length - Math.ceil(bars.length / 3 / 1.105), to: bars.length + 3 });
+    // all'apertura le ultime 70 candele, piu' leggibili (04/11/2026); l'icona accanto ai pulsanti le mostra tutte
+    if (fit) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 70), to: bars.length + 3 });
 
     var last = bars[bars.length - 1];
     // solo il mantenimento, che cambia il senso dei livelli: il resto della vecchia intestazione e' tolto (01/11/2026)
