@@ -88,6 +88,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pos .sell { color: var(--down); font-weight: 600; }
 footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--muted); }
 .stamp { font-style: italic; color: var(--fg); }
+.foot-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; }
+.credit { font-size: 11px; color: var(--muted); text-decoration: none; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .sw { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
@@ -127,7 +129,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     <div class="col" id="pos-box" style="margin-top:12px" hidden><h2>Posizioni aperte dell'EA</h2><div class="pos" id="pos-list"></div></div>
   </div>
   <footer id="foot" hidden>
-    <div><span class="stamp" id="stamp"></span></div>
+    <div class="foot-top"><span class="stamp" id="stamp"></span><a class="credit" href="https://www.tradingview.com/" target="_blank" rel="noopener">© TradingView</a></div>
     <div class="legend">
       <span><i class="sw" style="background:var(--lv38)"></i>TP 38</span>
       <span><i class="sw" style="background:var(--lv61)"></i>61</span>
@@ -138,7 +140,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       <span><i class="sw" style="background:var(--burnt)"></i>bruciato</span>
       <span><i class="sw" style="background:var(--pos)"></i>posizione</span>
     </div>
-    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA. <span id="burnt-note"></span> Grafico: <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts</a>.</div>
+    <div class="note">Candele chiare: prima del periodo dei livelli. Distanze in pip dall'ultimo prezzo. Livelli calcolati come l'EA dalla candela del broker; bruciati secondo lo status dell'EA. <span id="burnt-note"></span></div>
   </footer>
 </div>
 
