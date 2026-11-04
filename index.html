@@ -363,7 +363,8 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     names.set(tags, posTags);
     marks.sort(function (a, b) { return a.time - b.time; });
     series.setMarkers(marks);
-    if (fit) chart.timeScale().fitContent();
+    // all'apertura l'ultimo terzo delle candele, piu' leggibile (04/11/2026); l'icona accanto ai pulsanti le mostra tutte
+    if (fit) chart.timeScale().setVisibleLogicalRange({ from: bars.length - Math.ceil(bars.length / 3), to: bars.length + 3 });
 
     var last = bars[bars.length - 1];
     // solo il mantenimento, che cambia il senso dei livelli: il resto della vecchia intestazione e' tolto (01/11/2026)
@@ -426,7 +427,17 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
     });
-    series = chart.addCandlestickSeries({ priceLineVisible: true, lastValueVisible: true });
+    series = chart.addCandlestickSeries({ priceLineVisible: true, lastValueVisible: true,
+      // la scala segue le candele visibili: gli ordini aperti restano sempre dentro, anche se aperti prima (04/11/2026)
+      autoscaleInfoProvider: function (original) {
+        var r = original();
+        if (!r || !r.priceRange || !state.POS) return r;
+        (D.positions || []).forEach(function (p) {
+          r.priceRange.minValue = Math.min(r.priceRange.minValue, p.price);
+          r.priceRange.maxValue = Math.max(r.priceRange.maxValue, p.price);
+        });
+        return r;
+      } });
     names = new LevelNames();
     series.attachPrimitive(names);
     ["MR", "TR", "POS"].forEach(function (k) {
