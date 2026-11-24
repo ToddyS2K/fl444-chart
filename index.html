@@ -97,7 +97,7 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 .note { border-left: 3px solid var(--line); padding-left: 8px; }
 [hidden] { display: none !important; }
 /* grafici affiancati (24/11/2026): la griglia e il grafico grande usano tutta la larghezza */
-body.multi .app, body.wide .app { max-width: none; }
+body.multi .app { max-width: none; }
 .grow { flex: 1; }
 .gbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .gbar h1 { margin-right: 2px; }
@@ -453,17 +453,6 @@ body.multi .app, body.wide .app { max-width: none; }
     $("t-POS").hidden = !pos.length;
   }
 
-  // Telegram Desktop (Windows, Mac) o un tablet (lato corto dello schermo da 600 pixel): la pagina chiede lo schermo
-  // intero all'apertura e il grafico singolo usa tutta la larghezza. Telegram Web no: li' lo schermo intero vuole un
-  // tocco (resta il pulsante ⛶); sul telefono la finestra di sempre.
-  function bigScreen() {
-    if (!inTg) return false;
-    var p = tg.platform || "";
-    if (/^(tdesktop|macos|unigram)$/.test(p)) return true;
-    if (/^(android|ios)$/.test(p)) return Math.min(screen.width, screen.height) >= 600;
-    return false;
-  }
-
   function stampText(s) {
     return "⏱️ " + String(s || "").replace(/^(\d{4})\.(\d{2})\.(\d{2}) (\d\d:\d\d).*$/, "$3/$2/$1 $4") + " ora del server";
   }
@@ -471,10 +460,6 @@ body.multi .app, body.wide .app { max-width: none; }
   function start(data) {
     if (data.error) return fail("Il servizio ha risposto: " + data.error);
     setupFullscreen();
-    if (bigScreen()) {   // 24/11/2026 (richiesta di Marco, in prova): desktop e tablet a tutto schermo e a tutta larghezza
-      document.body.classList.add("wide");
-      try { if (typeof tg.requestFullscreen === "function" && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && !tg.isFullscreen) tg.requestFullscreen(); } catch (e) {}
-    }
     if (data.multi) return startGrid(data);   // grafici affiancati (24/11/2026)
     showSingle(data);
   }
