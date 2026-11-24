@@ -96,6 +96,28 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 .sw.dash { background-image: linear-gradient(90deg, var(--muted) 55%, transparent 55%) !important; background-size: 5px 3px; }
 .note { border-left: 3px solid var(--line); padding-left: 8px; }
 [hidden] { display: none !important; }
+/* grafici affiancati (24/11/2026): la griglia e il grafico grande usano tutta la larghezza */
+body.multi .app { max-width: none; }
+.grow { flex: 1; }
+.gbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.gbar h1 { margin-right: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; border-left: 1px solid var(--line); background: transparent; padding: 5px 10px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { color: var(--accent); font-weight: 600; }
+.grid { display: grid; gap: 8px; margin-top: 8px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; cursor: pointer; }
+.tile:hover, .tile:focus-visible { border-color: var(--accent); outline: none; }
+.tile.dead { cursor: default; }
+.tile.dead:hover { border-color: var(--line); }
+.th { display: flex; align-items: baseline; gap: 6px; padding: 4px 8px 0; font-size: 12px; white-space: nowrap; overflow: hidden; min-height: 22px; }
+.th b { font-size: 12.5px; font-weight: 600; flex-shrink: 0; }
+.th .lg { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.th .rt { margin-left: auto; flex-shrink: 0; font-family: var(--font-num); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.th .rt.up { color: var(--up); } .th .rt.down { color: var(--down); }
+.tile canvas { display: block; width: 100%; flex: 1; min-height: 0; }
+.tile .empty { flex: 1; display: grid; place-items: center; color: var(--muted); font-size: 12px; padding: 8px; text-align: center; }
+.navbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 @media (max-width: 520px) {
   body { --gap-top: 8px; --gap-bottom: 16px; }
   .app { gap: 8px; }
@@ -107,12 +129,39 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
 </head>
 <body>
 <div class="app">
-  <header>
+  <header id="head">
     <h1 id="title">Grafico FL444</h1>
     <span class="sub" id="sub"></span>
   </header>
   <div class="msg" id="msg">Carico il grafico…</div>
+  <div id="grid-view" hidden>
+    <div class="gbar">
+      <h1 id="g-title">Grafici</h1><span class="sub" id="g-count"></span>
+      <span class="grow"></span>
+      <button type="button" class="chip" id="g-MR" aria-pressed="true">MR</button>
+      <button type="button" class="chip" id="g-TR" aria-pressed="true">TR</button>
+      <button type="button" class="chip" id="g-POS" aria-pressed="true">Posizioni</button>
+      <span class="seg" id="g-tf" title="Periodo dei livelli di Futureland" hidden>
+        <button type="button" data-v="auto" aria-pressed="true">Auto</button><button type="button" data-v="W" aria-pressed="false">W</button><button type="button" data-v="M" aria-pressed="false">M</button>
+      </span>
+      <span class="seg" id="g-sort" title="Ordine dei riquadri">
+        <button type="button" data-v="dash" aria-pressed="true">Dashboard</button><button type="button" data-v="near" aria-pressed="false">Vicini a un livello</button>
+      </span>
+      <span class="seg" id="g-cols" title="Colonne">
+        <button type="button" data-v="0" aria-pressed="true">Adatta</button><button type="button" data-v="1" aria-pressed="false">1</button><button type="button" data-v="2" aria-pressed="false">2</button><button type="button" data-v="3" aria-pressed="false">3</button><button type="button" data-v="4" aria-pressed="false">4</button>
+      </span>
+      <button type="button" class="chip icon" id="gfs" title="Schermo intero" aria-label="Schermo intero" hidden></button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
   <div id="main" hidden>
+    <div class="navbar" id="nav" hidden>
+      <button type="button" class="chip" id="back">← Tutti</button>
+      <span class="sub" id="nav-pos"></span>
+      <span class="grow"></span>
+      <button type="button" class="chip" id="prev" aria-label="Grafico precedente">◀</button>
+      <button type="button" class="chip" id="next" aria-label="Grafico successivo">▶</button>
+    </div>
     <div class="row" style="margin-bottom:8px">
       <button type="button" class="chip" id="t-MR" aria-pressed="true">MR</button>
       <button type="button" class="chip" id="t-TR" aria-pressed="true">TR</button>
@@ -285,8 +334,10 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
   }
 
   // livelli d'ingresso ancora validi secondo lo status (null = non si sa)
-  function liveSets() {
-    var st = (D.ea && D.ea.status) || {}, v = D.view, out = {};
+  // d: i dati di un grafico (di default quello mostrato; la griglia passa quelli dei riquadri)
+  function liveSets(d) {
+    d = d || D;
+    var st = (d.ea && d.ea.status) || {}, v = d.view, out = {};
     function set(key) { var s = st[key]; if (s === undefined) return null; return (s === "OUT" || s === "NONE") ? [] : s.split("/"); }
     out.long = set("MR" + v + "_LongState"); out.short = set("MR" + v + "_ShortState"); out.tr = set("TR" + v + "_State");
     return out;
@@ -298,16 +349,19 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     if (set === null) return false;
     return set.indexOf(name) < 0;
   }
-  function logicOn(kind) {
-    var st = (D.ea && D.ea.status) || {}, lg = st.WeeklyLogic || st.MonthlyLogic || st.DailyLogic;
+  function logicOn(kind, d) {
+    d = d || D;
+    var st = (d.ea && d.ea.status) || {}, lg = st.WeeklyLogic || st.MonthlyLogic || st.DailyLogic;
     if (lg === undefined) return true;
     if (lg === "1") return kind === "MR";
     if (lg === "2") return kind === "TR";
+    if (lg === "3") return true;   // Yamatai MR+TR (08/11/2026): tutte e due le logiche
     if (lg === "LOGIC_NONE") return true;
     return lg.indexOf(kind) >= 0;
   }
-  function levels() {
-    var out = [], mr = D.mr || {}, tr = D.tr || {};
+  function levels(d) {
+    d = d || D;
+    var out = [], mr = d.mr || {}, tr = d.tr || {};
     ["R138", "R100", "R78", "R61", "R38", "PP", "S38", "S61", "S78", "S100", "S138"].forEach(function (n) {
       if (mr[n] !== undefined) out.push({ kind: "MR", name: n, price: mr[n] });
     });
@@ -399,19 +453,40 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
     $("t-POS").hidden = !pos.length;
   }
 
+  function stampText(s) {
+    return "⏱️ " + String(s || "").replace(/^(\d{4})\.(\d{2})\.(\d{2}) (\d\d:\d\d).*$/, "$3/$2/$1 $4") + " ora del server";
+  }
+
   function start(data) {
+    if (data.error) return fail("Il servizio ha risposto: " + data.error);
+    setupFullscreen();
+    if (data.multi) return startGrid(data);   // grafici affiancati (24/11/2026)
+    showSingle(data);
+  }
+
+  // un grafico: quello aperto dal pulsante 📈 Chart, o un riquadro della griglia aperto grande
+  function showSingle(data) {
     D = data;
-    if (D.error) return fail("Il servizio ha risposto: " + D.error);
     var ea = D.ea || {};
     $("title").textContent = (ea.name || D.sym) + " · " + (ea.view_label || D.view);
     // il time frame delle candele accanto alla famiglia (01/11/2026: con l'intestazione tolta non si vedeva piu'; l'ora
     // del grafico tolta lo stesso giorno, resta l'ora del server in fondo)
     $("sub").textContent = (ea.family || (D.fam === "Y" ? "Yamatai" : "Futureland")) + (D.candle_tf ? " · " + D.candle_tf : "");
-    $("stamp").textContent = "⏱️ " + String(D.server_time_s || "").replace(/^(\d{4})\.(\d{2})\.(\d{2}) (\d\d:\d\d).*$/, "$3/$2/$1 $4") + " ora del server";
+    $("stamp").textContent = stampText(D.server_time_s);
     state.MR = logicOn("MR"); state.TR = logicOn("TR");
     // una logica spenta non ha ne' riquadro ne' pulsante (01/11/2026)
     ["MR", "TR"].forEach(function (k) { $("box-" + k).hidden = !state[k]; $("t-" + k).hidden = !state[k]; });
     $("msg").hidden = true; $("main").hidden = false; $("foot").hidden = false;
+    initSingle();
+    fitHeight();
+    applyTheme();
+    render(true);
+  }
+
+  var ready = false;
+  function initSingle() {
+    if (ready) return;
+    ready = true;
     var LC = window.LightweightCharts;
     chart = LC.createChart($("chart"), {
       autoSize: true,
@@ -446,16 +521,251 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
       $("t-" + k).addEventListener("click", function () { state[k] = !state[k]; render(false); });
     });
     $("fit").addEventListener("click", function () { chart.timeScale().fitContent(); });
-    setupFullscreen();
-    fitHeight();
     window.addEventListener("resize", fitHeight);
     if (inTg) try { tg.onEvent("viewportChanged", function (e) { if (!e || e.isStateStable) fitHeight(); }); } catch (e) {}
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitHeight);
-    var retheme = function () { applyTheme(); render(false); };
+    var retheme = function () { if (!$("main").hidden) { applyTheme(); render(false); } };
     try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme); } catch (e) {}
     new MutationObserver(retheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
-    applyTheme();
-    render(true);
+  }
+
+  // ---------------------------------------------------------------- grafici affiancati (24/11/2026)
+  // Dal pulsante "📈 Charts" della Dashboard del bot: i grafici di tutti gli EA della vista in una griglia che riempie lo
+  // schermo (docs/mockup/Grafici_Affiancati.html). I riquadri sono disegni leggeri su canvas (le ultime 70 candele, i
+  // livelli, le posizioni; i nomi solo dei due livelli attorno al prezzo); toccandone uno si apre il grafico singolo, con
+  // ◀ ▶ per gli altri e "← Tutti" (o il Back di Telegram) per tornare alla griglia.
+  var G = null, GS = { MR: true, TR: true, POS: true, tf: "auto", sort: "dash", cols: 0 }, shown = [], cur = -1;
+  var ENTRY = /^(S|R|TR)(61|78|100)$/;
+
+  function viewOf(it) {
+    if (it.error || !it.order || !it.order.length) return null;
+    if (GS.tf === "auto" || it.order.indexOf("D") >= 0) return it.order[0];
+    return it.order.indexOf(GS.tf) >= 0 ? GS.tf : null;
+  }
+  function lastClose(d) { var c = d.candles || []; return c.length ? c[c.length - 1][4] : null; }
+  function pointOf(d) { return d.point || Math.pow(10, -d.digits); }
+  function pipOf(d) { return d.pip || Math.pow(10, -d.digits) * ((d.digits === 3 || d.digits === 5) ? 10 : 1); }
+  // il livello d'ingresso ancora valido piu' vicino nel verso in cui il prezzo ci arriva (come gli avvisi di prezzo)
+  function nearest(d) {
+    var last = lastClose(d), live = liveSets(d), bull = (d.tr || {}).dir === "BULL", best = null;
+    if (last === null) return null;
+    levels(d).forEach(function (lv) {
+      if (!ENTRY.test(lv.name) || !logicOn(lv.kind, d) || isBurnt(lv.kind, lv.name, live)) return;
+      var below = lv.kind === "TR" ? bull : lv.name[0] === "S";
+      if (below ? lv.price >= last : lv.price <= last) return;
+      var dist = Math.abs(last - lv.price);
+      if (!best || dist < best.dist) best = { name: lv.name, dist: dist };
+    });
+    return best;
+  }
+  function rightText(d) {
+    var pos = d.positions || [], last = lastClose(d);
+    if (pos.length && last !== null) {
+      var nb = 0, ns = 0, pips = 0, pip = pipOf(d);
+      pos.forEach(function (p) {
+        if (p.type === "buy") nb++; else ns++;
+        pips += (p.type === "buy" ? 1 : -1) * (last - p.price) / pip;
+      });
+      var legs = (nb ? nb + "L" : "") + (ns ? ns + "S" : "");
+      return { cls: pips >= 0 ? "up" : "down", text: legs + " " + (pips >= 0 ? "+" : "−") + numIT(Math.abs(pips), 1) };
+    }
+    var n = nearest(d);
+    return n ? { cls: "", text: n.name + " · Δ " + Math.round(n.dist / pointOf(d)).toLocaleString("it-IT") + " pts" } : { cls: "", text: "" };
+  }
+  function nearKey(it) {
+    var v = viewOf(it);
+    if (!v) return 1e9;
+    var d = it.views[v];
+    if ((d.positions || []).length) return -1;
+    var n = nearest(d), b = d.bar || {}, range = Math.abs((b.high || 0) - (b.low || 0)) || 1;
+    return n ? n.dist / range : 1e6;
+  }
+
+  // colonne: in "Adatta" tutte nello schermo senza riquadri troppo piccoli, se no la griglia scorre
+  function layout(n, W, H) {
+    var gap = 8, small = W < 600, minW = small ? 150 : 210, minH = small ? 110 : 150, ideal = 1.55, best = null;
+    if (GS.cols > 0) {
+      var c0 = Math.min(GS.cols, n), tw0 = (W - gap * (c0 - 1)) / c0, r0 = Math.ceil(n / c0), fit0 = (H - gap * (r0 - 1)) / r0;
+      return { c: c0, th: fit0 >= minH ? fit0 : Math.max(minH, Math.min(tw0 / ideal, 320)) };
+    }
+    for (var c = 1; c <= n; c++) {
+      var r = Math.ceil(n / c), tw = (W - gap * (c - 1)) / c, th = (H - gap * (r - 1)) / r;
+      if (tw < minW || th < minH) continue;
+      var ar = tw / th, score = (n / (c * r)) * Math.min(ar / ideal, ideal / ar);
+      if (!best || score > best.score) best = { c: c, th: th, score: score };
+    }
+    if (best) return best;
+    var cs = Math.max(1, Math.min(n, Math.floor((W + gap) / (minW + gap)))), tws = (W - gap * (cs - 1)) / cs;
+    return { c: cs, th: Math.max(minH, Math.min(tws / ideal, 200)) };
+  }
+
+  function drawTile(cv, d, off) {
+    var W = cv.clientWidth, H = cv.clientHeight, k = window.devicePixelRatio || 1;
+    if (W < 10 || H < 10) return;
+    cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    var bars = (d.candles || []).slice(-70);
+    if (!bars.length) return;
+    var lo = Infinity, hi = -Infinity;
+    bars.forEach(function (b) { lo = Math.min(lo, b[3]); hi = Math.max(hi, b[2]); });
+    var pos = GS.POS ? (d.positions || []) : [];
+    pos.forEach(function (p) { lo = Math.min(lo, p.price); hi = Math.max(hi, p.price); });
+    var span = (hi - lo) || hi * 0.001; lo -= span * 0.07; hi += span * 0.07;
+    var padL = 4, padR = 8, padT = 4, padB = 6;
+    function y(p) { return padT + (hi - p) / (hi - lo) * (H - padT - padB); }
+    var cw = (W - padL - padR) / bars.length, last = bars[bars.length - 1][4];
+    // livelli
+    var live = liveSets(d), shownLv = [];
+    levels(d).forEach(function (lv) {
+      if (!GS[lv.kind] || !logicOn(lv.kind, d) || lv.price <= lo || lv.price >= hi) return;
+      var burnt = isBurnt(lv.kind, lv.name, live), col = burnt ? tok("--burnt") : levelColor(lv.name), yy = Math.round(y(lv.price)) + 0.5;
+      ctx.strokeStyle = col; ctx.globalAlpha = lv.name === "PP" ? 0.6 : 0.9;
+      ctx.lineWidth = lv.name.slice(-3) === "138" ? 1.6 : 1.2;
+      ctx.setLineDash(lv.kind === "TR" ? [5, 3] : (burnt || lv.name === "PP") ? [2, 3] : []);
+      ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(W - padR, yy); ctx.stroke();
+      if (lv.name !== "PP") shownLv.push({ lv: lv, col: col, burnt: burnt, y: yy });
+    });
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    // candele (prima del periodo dei livelli piu' chiare, come nel grafico singolo)
+    var up = tok("--up"), dn = tok("--down"), uf = tok("--up-faded"), df = tok("--down-faded");
+    ctx.globalAlpha = off ? 0.45 : 1;
+    bars.forEach(function (b, i) {
+      var old = b[0] < d.period_start, col = b[4] >= b[1] ? (old ? uf : up) : (old ? df : dn);
+      var x = padL + cw * (i + 0.5), bw = Math.max(1, cw * 0.62);
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, y(b[2])); ctx.lineTo(Math.round(x) + 0.5, y(b[3])); ctx.stroke();
+      var top = y(Math.max(b[1], b[4])), h = Math.max(1, Math.abs(y(b[1]) - y(b[4])));
+      ctx.fillRect(x - bw / 2, top, bw, h);
+    });
+    ctx.globalAlpha = 1;
+    // posizioni
+    ctx.strokeStyle = tok("--pos"); ctx.lineWidth = 1.2; ctx.setLineDash([1, 2.5]);
+    pos.forEach(function (p) { var yy = Math.round(y(p.price)) + 0.5; ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(W - padR, yy); ctx.stroke(); });
+    ctx.setLineDash([]);
+    // nomi solo dei due livelli attorno al prezzo
+    var below = null, above = null;
+    shownLv.forEach(function (s) {
+      if (s.lv.price <= last) { if (!below || s.lv.price > below.lv.price) below = s; }
+      else if (!above || s.lv.price < above.lv.price) above = s;
+    });
+    ctx.font = "600 10px " + tok("--font-ui"); ctx.textBaseline = "bottom"; ctx.lineJoin = "round";
+    [above, below].forEach(function (s) {
+      if (!s) return;
+      var t = s.lv.name + (s.burnt ? " ✕" : ""), ty = Math.max(11, s.y - 2);
+      ctx.strokeStyle = tok("--surface"); ctx.lineWidth = 3; ctx.strokeText(t, padL + 3, ty);
+      ctx.fillStyle = s.col; ctx.fillText(t, padL + 3, ty);
+    });
+    // ultimo prezzo
+    ctx.strokeStyle = tok("--fg"); ctx.lineWidth = 1.5;
+    var ly = Math.round(y(last)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(W - padR - 2, ly); ctx.lineTo(W - 1, ly); ctx.stroke();
+  }
+
+  function tileHead(it, d, v) {
+    var name = '<b>' + esc(it.name) + '</b>';
+    var lg = '<span class="lg">' + esc(it.logic || "") + (d && d.candle_tf ? " · " + esc(d.candle_tf) : "") +
+             (d && it.off && it.off[v] ? " · ○ trading spento" : "") + '</span>';
+    var rt;
+    if (!d) rt = { cls: "", text: it.error ? "??" : "-" };
+    else if (it.mute) rt = { cls: "", text: "?? EA muto" };
+    else rt = rightText(d);
+    return '<div class="th">' + name + lg + '<span class="rt ' + rt.cls + '">' + esc(rt.text) + '</span></div>';
+  }
+
+  function drawGrid() {
+    if (!G || $("grid-view").hidden) return;
+    shown = G.items.slice();
+    if (GS.sort === "near") shown.sort(function (a, b) { return nearKey(a) - nearKey(b); });
+    $("g-count").textContent = shown.length + " EA";
+    var grid = $("grid"), W = grid.clientWidth;
+    var vh = (inTg && tg.viewportStableHeight) ? tg.viewportStableHeight : window.innerHeight;
+    var top = grid.getBoundingClientRect().top + window.scrollY, H = Math.max(200, vh - top - 44);
+    var L = layout(shown.length, W, H), th = Math.floor(L.th);
+    grid.style.gridTemplateColumns = "repeat(" + L.c + ", minmax(0, 1fr))";
+    grid.innerHTML = "";
+    var draws = [];
+    shown.forEach(function (it, i) {
+      var t = document.createElement("div"), v = viewOf(it), d = v ? it.views[v] : null;
+      t.className = "tile" + (d ? "" : " dead");
+      t.style.height = th + "px";
+      if (!d) {
+        var why = it.error ? "Nessuna risposta: " + it.error : "Nessuna logica " + (GS.tf === "W" ? "settimanale" : "mensile");
+        t.innerHTML = tileHead(it, null, null) + '<div class="empty">' + esc(why) + '</div>';
+      } else {
+        t.tabIndex = 0;
+        t.setAttribute("role", "button");
+        t.setAttribute("aria-label", it.name + ": apri il grafico");
+        t.innerHTML = tileHead(it, d, v) + "<canvas></canvas>";
+        t.addEventListener("click", function () { openBig(i); });
+        t.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openBig(i); } });
+        draws.push([t.querySelector("canvas"), d, !!(it.off && it.off[v])]);
+      }
+      grid.appendChild(t);
+    });
+    draws.forEach(function (x) { drawTile(x[0], x[1], x[2]); });
+  }
+
+  function seg(id, set) {
+    $(id).addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      Array.prototype.forEach.call($(id).querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      set(b.getAttribute("data-v")); drawGrid();
+    });
+  }
+
+  function startGrid(data) {
+    G = data;
+    document.body.classList.add("multi");
+    $("g-title").textContent = data.title || "Grafici";
+    $("stamp").textContent = stampText(data.server_time_s);
+    var both = (data.items || []).some(function (it) { return it.order && it.order.indexOf("W") >= 0 && it.order.indexOf("M") >= 0; });
+    $("g-tf").hidden = !both;
+    ["MR", "TR", "POS"].forEach(function (k) {
+      $("g-" + k).addEventListener("click", function () { GS[k] = !GS[k]; $("g-" + k).setAttribute("aria-pressed", String(GS[k])); drawGrid(); });
+    });
+    seg("g-tf", function (v) { GS.tf = v; });
+    seg("g-sort", function (v) { GS.sort = v; });
+    seg("g-cols", function (v) { GS.cols = +v; });
+    $("back").addEventListener("click", backToGrid);
+    $("prev").addEventListener("click", function () { step(-1); });
+    $("next").addEventListener("click", function () { step(1); });
+    if (inTg && tg.BackButton) try { tg.BackButton.onClick(backToGrid); } catch (e) {}
+    var timer = null;
+    var redraw = function () { clearTimeout(timer); timer = setTimeout(drawGrid, 120); };
+    window.addEventListener("resize", redraw);
+    if (inTg) try { tg.onEvent("viewportChanged", function (e) { if (!e || e.isStateStable) redraw(); }); } catch (e) {}
+    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw); } catch (e) {}
+    new MutationObserver(redraw).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+    $("msg").hidden = true; $("head").hidden = true; $("grid-view").hidden = false; $("foot").hidden = false;
+    drawGrid();
+  }
+
+  function openable() { return shown.map(function (it, i) { return viewOf(it) ? i : -1; }).filter(function (i) { return i >= 0; }); }
+  function openBig(i) {
+    cur = i;
+    $("grid-view").hidden = true; $("nav").hidden = false; $("head").hidden = false;
+    if (inTg && tg.BackButton) try { tg.BackButton.show(); } catch (e) {}
+    showItem();
+    window.scrollTo(0, 0);
+  }
+  function showItem() {
+    var it = shown[cur], ok = openable();
+    showSingle(it.views[viewOf(it)]);
+    $("nav-pos").textContent = (ok.indexOf(cur) + 1) + " / " + ok.length;
+  }
+  function step(k) {
+    var ok = openable(), p = ok.indexOf(cur);
+    if (!ok.length) return;
+    cur = ok[(p + k + ok.length) % ok.length];
+    showItem();
+  }
+  function backToGrid() {
+    $("main").hidden = true; $("nav").hidden = true; $("head").hidden = true; $("grid-view").hidden = false;
+    $("stamp").textContent = stampText(G.server_time_s);
+    if (inTg && tg.BackButton) try { tg.BackButton.hide(); } catch (e) {}
+    drawGrid();
   }
 
   // ---------------------------------------------------------------- altezza del grafico e schermo intero (01/11/2026)
@@ -478,34 +788,35 @@ footer { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; col
   // Telegram dalla Bot API 8.0 (requestFullscreen); fuori da Telegram lo schermo intero del browser, dove c'e'
   // (non su Safari dell'iPhone). Dove non si puo', il pulsante non compare.
   function setupFullscreen() {
-    var b = $("fs");
+    var bs = [$("fs"), $("gfs")];   // il pulsante del grafico singolo e quello della griglia (24/11/2026)
     var tgFs = inTg && typeof tg.requestFullscreen === "function" && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0");
     var docFs = !inTg && document.fullscreenEnabled && typeof root.requestFullscreen === "function";
     if (!tgFs && !docFs) return;
     function isFs() { return tgFs ? !!tg.isFullscreen : !!document.fullscreenElement; }
+    function relayout() { fitHeight(); drawGrid(); }
     function show() {
-      var on = isFs();
-      b.innerHTML = on ? ICON_OUT : ICON_IN;
-      b.title = on ? "Esci dallo schermo intero" : "Schermo intero";
-      b.setAttribute("aria-label", b.title);
-      setTimeout(fitHeight, 50);
+      var on = isFs(), t = on ? "Esci dallo schermo intero" : "Schermo intero";
+      bs.forEach(function (b) { b.innerHTML = on ? ICON_OUT : ICON_IN; b.title = t; b.setAttribute("aria-label", t); });
+      setTimeout(relayout, 50);
     }
-    b.addEventListener("click", function () {
-      try {
-        if (tgFs) { if (isFs()) tg.exitFullscreen(); else tg.requestFullscreen(); }
-        else if (isFs()) document.exitFullscreen();
-        else root.requestFullscreen().catch(function () {});
-      } catch (e) {}
+    bs.forEach(function (b) {
+      b.addEventListener("click", function () {
+        try {
+          if (tgFs) { if (isFs()) tg.exitFullscreen(); else tg.requestFullscreen(); }
+          else if (isFs()) document.exitFullscreen();
+          else root.requestFullscreen().catch(function () {});
+        } catch (e) {}
+      });
     });
     if (tgFs) {
       tg.onEvent("fullscreenChanged", show);
-      tg.onEvent("fullscreenFailed", function (e) { if (e && e.error === "UNSUPPORTED") b.hidden = true; });
-      tg.onEvent("safeAreaChanged", fitHeight);
-      tg.onEvent("contentSafeAreaChanged", fitHeight);
+      tg.onEvent("fullscreenFailed", function (e) { if (e && e.error === "UNSUPPORTED") bs.forEach(function (b) { b.hidden = true; }); });
+      tg.onEvent("safeAreaChanged", relayout);
+      tg.onEvent("contentSafeAreaChanged", relayout);
     } else {
       document.addEventListener("fullscreenchange", show);
     }
-    b.hidden = false;
+    bs.forEach(function (b) { b.hidden = false; });
     show();
   }
 
